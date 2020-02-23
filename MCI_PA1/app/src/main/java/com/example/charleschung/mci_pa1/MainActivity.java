@@ -10,15 +10,23 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.net.Uri;
 import android.os.Environment;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.Toast;
+import android.widget.EditText;
+import android.widget.Spinner;
 
 import com.opencsv.CSVWriter;
+import com.opencsv.bean.StatefulBeanToCsv;
+import com.opencsv.bean.StatefulBeanToCsvBuilder;
+import com.opencsv.exceptions.CsvDataTypeMismatchException;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -26,9 +34,22 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
-public class MainActivity extends AppCompatActivity implements SensorEventListener {
+import static java.security.AccessController.getContext;
+
+public class MainActivity extends AppCompatActivity implements SensorEventListener, AdapterView.OnItemSelectedListener {
 
     private static final String TAG = "MainActivity";
 
@@ -41,9 +62,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     boolean isRunning;
     // FileWriter writer;
+    EditText distanceInput;
+    String distance;
     String filePath;
     String fileName;
     CSVWriter writer = null;
+    long startTime;
+    Map<Long, List> map = new HashMap<>();
+    String activity;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,13 +81,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Button BtnStart = (Button) findViewById(R.id.button_start);
         Button BtnStop = (Button) findViewById(R.id.button_stop);
 
-
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         Accelerometer = null;
         Gyroscope = null;
         Magnetic = null;
         Light = null;
         Borameter = null;
+
 
         if (sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null){
             Accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -79,19 +105,37 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             Borameter = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
         }
 
+        distanceInput = (EditText) findViewById(R.id.distanceInput);
+
+        Spinner spinner = (Spinner) findViewById(R.id.spinner);
+        spinner.setOnItemSelectedListener(this);
+        // Create an ArrayAdapter using the string array and a default spinner layout
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+                R.array.activities_array, android.R.layout.simple_spinner_item);
+        // Specify the layout to use when the list of choices appears
+
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        // Apply the adapter to the spinner
+        spinner.setAdapter(adapter);
+
         BtnStart.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View arg0) {
 
-                Log.d(TAG, "Writing to " + getFilesDir().getAbsolutePath());
-                filePath = getFilesDir().getPath();
-                // filePath = Environment.getExternalStorageDirectory().getAbsolutePath();
-                fileName = " sensor-" + System.currentTimeMillis() + ".csv";
+                DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd-MM-yy hh:mm:ss");
+                LocalDateTime now = LocalDateTime.now();
+
+                distance = distanceInput.getText().toString();
+
+                filePath = getFilesDir().getAbsolutePath();
+                fileName = activity + " " + dtf.format(now) + " " + distance + "cm.csv";
 
                 try {
-                    writer = new CSVWriter(new FileWriter(filePath+fileName,true));
+                    writer = new CSVWriter(new FileWriter(filePath + "/" + fileName,true));
+                    Log.d(TAG, "Writing to " + filePath  + "/" + fileName);
                     // writer = new FileWriter(new File(getFilesDir().getAbsolutePath(), fileName));
+                    writer.writeNext(String.format("Timestamp, Accel x, Accel y, Accel z, Gyro x, Gyro y, Gyro z,Mag x,Mag y,Mag z,Light Intensity\n").split(","));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -103,15 +147,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 sensorManager.registerListener(MainActivity.this, Borameter, SensorManager.SENSOR_DELAY_FASTEST);
 
                 isRunning = true;
+                startTime = 0;
             }
         });
-
 
         BtnStop.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View arg0) {
 
+                writeToFile();
                 try {
                     writer.close();
                 } catch (IOException e) {
@@ -122,7 +167,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 isRunning = false;
 
                 // TODO
-                //onShareCSV();
+                onShareCSV();
             }
         });
 
@@ -135,35 +180,56 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Sensor sensor = event.sensor;
         float[] value = event.values;
 
+        if (startTime == 0){
+            startTime = event.timestamp;
+        }
+
+        Long key = (event.timestamp - startTime) / 1000000L;
+        List sensors = map.get(key);
+        if (sensors == null) {
+            sensors = new ArrayList<>(
+                    Arrays.asList("", "", "", "", "", "", "", "", "", "", ""));
+            map.put(key, sensors);
+        }
 
         if(isRunning) {
             if (sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
                 Log.d(TAG, "onSensorChanged: X:" + value[0] + ",Y: " + value[1] + ",Z: " + value[2]);
-                writer.writeNext(String.format("%d; ACC; %f; %f; %f; %f; %f; %f\n", event.timestamp, event.values[0], event.values[1], event.values[2], 0.f, 0.f, 0.f).split(","));
+                //writer.writeNext(String.format("%d, %f, %f, %f,,,,,,,\n", (event.timestamp - startTime) / 1000000L, event.values[0], event.values[1], event.values[2]).split(","));
+
+                sensors.set(1,String.valueOf(event.values[0]));
+                sensors.set(2,String.valueOf(event.values[1]));
+                sensors.set(3,String.valueOf(event.values[2]));
             }
             if (sensor.getType() == Sensor.TYPE_GYROSCOPE) {
                 Log.d(TAG, "onSensorChanged GYROSCOPE:" + value.length);
-                writer.writeNext(String.format("%d; GYRO; %f; %f; %f; %f; %f; %f\n", event.timestamp, event.values[0], event.values[1], event.values[2], 0.f, 0.f, 0.f).split(","));
+                //writer.writeNext(String.format("%d,,,, %f, %f, %f,,,,\n", (event.timestamp - startTime) / 1000000L, event.values[0], event.values[1], event.values[2]).split(","));
+
+                sensors.set(4,String.valueOf(event.values[0]));
+                sensors.set(5,String.valueOf(event.values[1]));
+                sensors.set(6,String.valueOf(event.values[2]));
+                Log.d(TAG, "on writing to map: " + map.get(key));
             }
             if (sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
                 Log.d(TAG, "onSensorChanged MAGNETIC FIELD:" + value[0]);
-                writer.writeNext(String.format("%d; MAG; %f; %f; %f; %f; %f; %f\n", event.timestamp, event.values[0], event.values[1], event.values[2], 0.f, 0.f, 0.f).split(","));
+                //writer.writeNext(String.format("%d,,,,,,,%f,%f,%f,\n", (event.timestamp - startTime) / 1000000L, event.values[0], event.values[1], event.values[2]).split(","));
+
+                sensors.set(7,String.valueOf(event.values[0]));
+                sensors.set(8,String.valueOf(event.values[1]));
+                sensors.set(9,String.valueOf(event.values[2]));
             }
             if (sensor.getType() == Sensor.TYPE_LIGHT) {
                 Log.d(TAG, "onSensorChanged LIGHT:" + value[0]);
-                writer.writeNext(String.format("%d; LIGHT; %f; %f;\n", event.timestamp, event.values[0], 0.f).split(","));
+                //writer.writeNext(String.format("%d,,,,,,,,,,%f\n", (event.timestamp - startTime) / 1000000L, event.values[0]).split(","));
+
+                sensors.set(10,String.valueOf(event.values[0]));
             }
         }
 
-        // String entry = currentX + "," + currentY + "," + currentZ;
-        // writeToFile (entry, this);
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
-    }
-
-    private void writeToFile(String entry, Context context) {
     }
 
     /**
@@ -172,23 +238,57 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
      */
     private void onShareCSV() {
 
-        Uri path = FileProvider.getUriForFile(this, "com.example.FileProvider", new File(filePath + fileName));
+        Context context = getApplicationContext();
+        File filelocation = new File(getFilesDir(), fileName);
+        Uri path = FileProvider.getUriForFile(context, "com.example.charleschung.mci_pa1", filelocation);
 
         Log.d(TAG, "onShareCSV: " + path);
-        Intent shareIntent = new Intent("com.example.FileProvider").setData(path);
-
-        List<ResolveInfo> resInfoList = getPackageManager().queryIntentActivities(shareIntent, PackageManager.MATCH_DEFAULT_ONLY);
-        for (ResolveInfo resolveInfo : resInfoList) {
-            String packageName = resolveInfo.activityInfo.packageName;
-            getApplicationContext().grantUriPermission(packageName, path, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        }
-
-        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        Intent shareIntent = new Intent();
         shareIntent.setAction(Intent.ACTION_SEND);
+        shareIntent.setType("text/csv");
+        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        shareIntent.setData(path);
         shareIntent.putExtra(Intent.EXTRA_TEXT, "This is a CSV I'm sharing.");
         shareIntent.putExtra(Intent.EXTRA_STREAM, path);
-        shareIntent.setType("text/csv");
         startActivity(Intent.createChooser(shareIntent, "Share..."));
-        this.setResult(RESULT_OK, shareIntent);
+    }
+
+    public void writeToFile() {
+        SortedSet<Long> keys = new TreeSet<>(map.keySet());
+        for (Long key : keys) {
+            List values = map.get(key);
+            values.set(0,String.valueOf(key));
+
+            Object[] objectList = values.toArray();
+            String[] array =  Arrays.copyOf(objectList,objectList.length,String[].class);
+            writer.writeNext(array);
+        }
+
+    }
+
+    public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+        // An item was selected. You can retrieve the selected item using
+        switch (pos){
+            case 0 :
+                activity = "WALKING";
+                break;
+            case 1:
+                activity = "RUNNING";
+                break;
+            case 2:
+                activity = "IDLE";
+                break;
+            case 3:
+                activity = "STAIRS";
+                break;
+            case 4:
+                activity = "JUMPING";
+                break;
+        }
+        Log.d(TAG, "onItemSelected: " + activity);
+    }
+
+    public void onNothingSelected(AdapterView<?> parent) {
+        // Another interface callback
     }
 }

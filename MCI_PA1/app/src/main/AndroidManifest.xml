@@ -22,9 +22,11 @@
 
         <provider
             android:name="android.support.v4.content.FileProvider"
+            android:authorities="com.example.charleschung.mci_pa1"
             android:grantUriPermissions="true"
-            android:authorities="com.example.FileProvider"
             android:exported="false">
+            <grant-uri-permission
+                android:grantUriPermissions="true" />
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/provider_paths"/>
@@ -32,7 +34,6 @@
 
     </application>
 
-    <uses-permission android:name="android.permission.FLAG_GRANT_READ_URI_PERMISSION"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
