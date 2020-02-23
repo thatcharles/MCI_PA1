@@ -2,15 +2,11 @@ package com.example.charleschung.mci_pa1;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.net.Uri;
-import android.os.Environment;
-import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -23,20 +19,10 @@ import android.widget.EditText;
 import android.widget.Spinner;
 
 import com.opencsv.CSVWriter;
-import com.opencsv.bean.StatefulBeanToCsv;
-import com.opencsv.bean.StatefulBeanToCsvBuilder;
-import com.opencsv.exceptions.CsvDataTypeMismatchException;
-import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -47,7 +33,6 @@ import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import static java.security.AccessController.getContext;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener, AdapterView.OnItemSelectedListener {
 
@@ -61,7 +46,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Sensor Borameter;
 
     boolean isRunning;
-    // FileWriter writer;
     EditText distanceInput;
     String distance;
     String filePath;
@@ -81,13 +65,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Button BtnStart = (Button) findViewById(R.id.button_start);
         Button BtnStop = (Button) findViewById(R.id.button_stop);
 
+        /**
+         * Initialize and get sensors
+         */
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         Accelerometer = null;
         Gyroscope = null;
         Magnetic = null;
         Light = null;
         Borameter = null;
-
 
         if (sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null){
             Accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -105,15 +91,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             Borameter = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
         }
 
+        /**
+         * Set up distanceInput, Spinner, BtnStart, BtnStop UI.
+         */
         distanceInput = (EditText) findViewById(R.id.distanceInput);
 
         Spinner spinner = (Spinner) findViewById(R.id.spinner);
         spinner.setOnItemSelectedListener(this);
         // Create an ArrayAdapter using the string array and a default spinner layout
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
-                R.array.activities_array, android.R.layout.simple_spinner_item);
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this, R.array.activities_array, android.R.layout.simple_spinner_item);
         // Specify the layout to use when the list of choices appears
-
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         // Apply the adapter to the spinner
         spinner.setAdapter(adapter);
@@ -132,6 +119,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 fileName = activity + " " + dtf.format(now) + " " + distance + "cm.csv";
 
                 try {
+                    /**
+                     * Initialize CSVWriter
+                     */
                     writer = new CSVWriter(new FileWriter(filePath + "/" + fileName,true));
                     Log.d(TAG, "Writing to " + filePath  + "/" + fileName);
                     // writer = new FileWriter(new File(getFilesDir().getAbsolutePath(), fileName));
@@ -140,6 +130,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     e.printStackTrace();
                 }
 
+
+                /**
+                 * Register (activate) sensors
+                 */
                 sensorManager.registerListener(MainActivity.this, Accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
                 sensorManager.registerListener(MainActivity.this, Gyroscope, SensorManager.SENSOR_DELAY_FASTEST);
                 sensorManager.registerListener(MainActivity.this, Magnetic, SensorManager.SENSOR_DELAY_FASTEST);
@@ -156,6 +150,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             @Override
             public void onClick(View arg0) {
 
+                /**
+                 * Write the data to CSV file.
+                 */
                 writeToFile();
                 try {
                     writer.close();
@@ -163,18 +160,25 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     e.printStackTrace();
                 }
 
+                /**
+                 * Stop the sensors.
+                 */
                 sensorManager.unregisterListener(MainActivity.this);
                 isRunning = false;
 
-                // TODO
+                /**
+                 * Share the CSV file created.
+                 */
                 onShareCSV();
             }
         });
 
-        Log.d(TAG, "onCreate: Registered accelerometer listener.");
-
     }
 
+    /**
+     * onSensorChanged will be called every time the sensor reads new data.
+     * The data would be written to a hashmap called map.
+     */
     @Override
     public final void onSensorChanged(SensorEvent event) {
         Sensor sensor = event.sensor;
@@ -195,7 +199,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if(isRunning) {
             if (sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
                 Log.d(TAG, "onSensorChanged: X:" + value[0] + ",Y: " + value[1] + ",Z: " + value[2]);
-                //writer.writeNext(String.format("%d, %f, %f, %f,,,,,,,\n", (event.timestamp - startTime) / 1000000L, event.values[0], event.values[1], event.values[2]).split(","));
 
                 sensors.set(1,String.valueOf(event.values[0]));
                 sensors.set(2,String.valueOf(event.values[1]));
@@ -203,7 +206,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
             if (sensor.getType() == Sensor.TYPE_GYROSCOPE) {
                 Log.d(TAG, "onSensorChanged GYROSCOPE:" + value.length);
-                //writer.writeNext(String.format("%d,,,, %f, %f, %f,,,,\n", (event.timestamp - startTime) / 1000000L, event.values[0], event.values[1], event.values[2]).split(","));
 
                 sensors.set(4,String.valueOf(event.values[0]));
                 sensors.set(5,String.valueOf(event.values[1]));
@@ -212,7 +214,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
             if (sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
                 Log.d(TAG, "onSensorChanged MAGNETIC FIELD:" + value[0]);
-                //writer.writeNext(String.format("%d,,,,,,,%f,%f,%f,\n", (event.timestamp - startTime) / 1000000L, event.values[0], event.values[1], event.values[2]).split(","));
 
                 sensors.set(7,String.valueOf(event.values[0]));
                 sensors.set(8,String.valueOf(event.values[1]));
@@ -220,7 +221,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
             if (sensor.getType() == Sensor.TYPE_LIGHT) {
                 Log.d(TAG, "onSensorChanged LIGHT:" + value[0]);
-                //writer.writeNext(String.format("%d,,,,,,,,,,%f\n", (event.timestamp - startTime) / 1000000L, event.values[0]).split(","));
 
                 sensors.set(10,String.valueOf(event.values[0]));
             }
@@ -233,8 +233,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     /**
-     * Create and start intent to share a photo with apps that can accept a single image
-     * of any format.
+     * Create and start intent to share the CSV file created.
      */
     private void onShareCSV() {
 
@@ -253,6 +252,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         startActivity(Intent.createChooser(shareIntent, "Share..."));
     }
 
+    /**
+     * writeToFile would be called after user clicks buttonStop.
+     * It writes the data in hashmap map into a CSV file.
+     */
     public void writeToFile() {
         SortedSet<Long> keys = new TreeSet<>(map.keySet());
         for (Long key : keys) {
@@ -267,7 +270,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-        // An item was selected. You can retrieve the selected item using
         switch (pos){
             case 0 :
                 activity = "WALKING";
