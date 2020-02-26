@@ -3,6 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  
 
+import time as t
+import random as r
+
 def count_zc(data):
 
 	count = 0
@@ -27,18 +30,21 @@ def count_zc(data):
 
 	return count
 
-def plot_features(df, feature_1,feature_2, feature_3):
+def plot_features(df_list, labels, feature_1,feature_2, feature_3):
 
 
 	fig = plt.figure()
 	ax = fig.add_subplot(111, projection='3d')
+	symbols = ['P','^','x','s','d','p']
+	colors = ['blue','green','red','orange','magenta']
 
-	ax.scatter(df[feature_1].to_numpy(), df[feature_2].to_numpy(), df[feature_3].to_numpy())
+	for i,df in enumerate(df_list):
+		ax.scatter(df[feature_1].to_numpy(), df[feature_2].to_numpy(), df[feature_3].to_numpy(),marker=symbols[i], color=colors[i],label=labels[i])
 
+	ax.legend()
 	ax.set_xlabel(feature_1)
 	ax.set_ylabel(feature_2)
 	ax.set_zlabel(feature_3)
-
 	plt.show()
 
 features = [
@@ -54,30 +60,56 @@ features = [
 'mean_mag_z', 'median_mag_z', 'max_mag_z','zc_mag_z', 'var_mag_z',
 ]
 
-sensor_df = pd.read_csv('sensor_readings_corrected.csv')
-sensor_df = sensor_df[sensor_df.Timestamp >= 0].drop(['Light Intensity'], axis=1)
-print(sensor_df)
+activities = ['walking','stairs','running', 'jumping', 'idle']
 
-analyzed_df = pd.DataFrame(columns=features)
+#read sensor data
+walking = pd.read_csv('walking.csv')
+walking = walking[walking.Timestamp >= 0].drop(['Light Intensity'], axis=1)
 
-max_time = sensor_df['Timestamp'].max()
+stairs = pd.read_csv('stairs.csv')
+stairs = stairs[stairs.Timestamp >= 0].drop(['Light Intensity'], axis=1)
 
-for i in range(0,max_time,200):
+running = pd.read_csv('running.csv')
+running = running[running.Timestamp >= 0].drop(['Light Intensity'], axis=1)
 
-	new_row = []
+jumping = pd.read_csv('jumping.csv')
+jumping = jumping[jumping.Timestamp >= 0].drop(['Light Intensity'], axis=1)
 
-	interval = sensor_df[sensor_df.Timestamp>=i]
-	interval = interval[interval.Timestamp<(i+200)].drop(['Timestamp'], axis=1)
+idle = pd.read_csv('idle.csv')
+idle = idle[idle.Timestamp >= 0].drop(['Light Intensity'], axis=1)
 
-	new_row.append(i)
-	for col in interval.columns:
-		new_row.append(interval[col].mean())
-		new_row.append(interval[col].median())
-		new_row.append(interval[col].max())
-		new_row.append(count_zc(interval[col].to_numpy()))
-		new_row.append(np.var(interval[col]))
+sensor_dfs = [walking, stairs, running, jumping, idle]
 
-	analyzed_df = analyzed_df.append(pd.Series(new_row, index = analyzed_df.columns), ignore_index=True)
+feature_dfs = []
+for sensor_df in sensor_dfs:
 
-analyzed_df.to_csv('calculated_sensor_features.csv')
-plot_features(analyzed_df,'mean_acc_x', 'median_acc_x', 'max_acc_x')
+	#create df for features
+	feature_df = pd.DataFrame(columns=features)
+
+	max_time = sensor_df['Timestamp'].max()
+	for i in range(0,max_time,200):
+
+		new_row = []
+
+		interval = sensor_df[sensor_df.Timestamp>=i]
+		interval = interval[interval.Timestamp<(i+200)].drop(['Timestamp'], axis=1)
+
+		new_row.append(i)
+		for col in interval.columns:
+			new_row.append(interval[col].mean())
+			new_row.append(interval[col].median())
+			new_row.append(interval[col].max())
+			new_row.append(count_zc(interval[col].to_numpy()))
+			new_row.append(np.var(interval[col]))
+
+		feature_df = feature_df.append(pd.Series(new_row, index = feature_df.columns), ignore_index=True)
+
+	feature_dfs.append(feature_df)
+
+
+# plot_features(feature_dfs,'max_acc_z', 'mean_acc_y', 'mean_acc_x')
+r.seed(t.time())
+for i in range(0,200):
+	i,j,k = r.randint(1,45), r.randint(1,45), r.randint(1,45)
+	print(i,j,k)
+	plot_features(feature_dfs, activities, features[i], features[j], features[k])
