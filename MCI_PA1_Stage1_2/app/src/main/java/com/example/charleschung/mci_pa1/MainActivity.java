@@ -191,8 +191,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Long key = (event.timestamp - startTime) / 1000000L;
         List sensors = map.get(key);
         if (sensors == null) {
-            sensors = new ArrayList<>(
-                    Arrays.asList("", "", "", "", "", "", "", "", "", "", ""));
+            sensors = new ArrayList<>(Arrays.asList("", "", "", "", "", "", "", "", "", "", ""));
             map.put(key, sensors);
         }
 
@@ -210,6 +209,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 sensors.set(4,String.valueOf(event.values[0]));
                 sensors.set(5,String.valueOf(event.values[1]));
                 sensors.set(6,String.valueOf(event.values[2]));
+
                 Log.d(TAG, "on writing to map: " + map.get(key));
             }
             if (sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
@@ -264,6 +264,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
             Object[] objectList = values.toArray();
             String[] array =  Arrays.copyOf(objectList,objectList.length,String[].class);
+
+
             writer.writeNext(array);
         }
 
