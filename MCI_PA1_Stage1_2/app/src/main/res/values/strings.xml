@@ -2,6 +2,9 @@
     <string name="app_name">MCI_PA1</string>
     <string name="start_btn">Start</string>
     <string name="stop_btn">Stop</string>
+    <string name="step">step(s)</string>
+    <string name="distance">cm</string>
+    <string name="rotation">degree</string>
     <string-array name="activities_array">
         <item>WALKING</item>
         <item>RUNNING</item>
