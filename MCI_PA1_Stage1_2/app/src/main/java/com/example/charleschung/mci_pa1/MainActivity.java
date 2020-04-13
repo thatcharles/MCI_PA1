@@ -52,8 +52,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Sensor Borameter;
 
     boolean isRunning;
-    EditText distanceInput;
-    String distance;
+    EditText stepDistanceInput;
+    String stepDistance;
     String filePath;
     String fileName;
     CSVWriter writer = null;
@@ -115,8 +115,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         /**
          * Set up distanceInput, Spinner, BtnStart, BtnStop UI.
          */
-        distanceInput = (EditText) findViewById(R.id.distance_input);
+        stepDistanceInput = (EditText) findViewById(R.id.distance_input);
 
+        /*
         Spinner spinner = (Spinner) findViewById(R.id.spinner);
         spinner.setOnItemSelectedListener(this);
         // Create an ArrayAdapter using the string array and a default spinner layout
@@ -124,7 +125,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // Specify the layout to use when the list of choices appears
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         // Apply the adapter to the spinner
-        spinner.setAdapter(adapter);
+         spinner.setAdapter(adapter);
+
+        */
 
         BtnStart.setOnClickListener(new View.OnClickListener() {
 
@@ -134,10 +137,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd-MM-yy hh:mm:ss");
                 LocalDateTime now = LocalDateTime.now();
 
-                distance = distanceInput.getText().toString();
+                stepDistance = stepDistanceInput.getText().toString();
 
                 filePath = getFilesDir().getAbsolutePath();
-                fileName = activity + " " + dtf.format(now) + " " + distance + "cm.csv";
+                fileName = "Jaewon_Nathaniel_Yu-Lin_" + dtf.format(now) + "_PA2.csv";
 
                 try {
                     /**
@@ -296,9 +299,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     TextView stepView = (TextView) findViewById(R.id.step_view);
                     TextView distanceView = (TextView) findViewById(R.id.distance_view);
                     stepView.setText(++stepCount + " Steps count");
-                    distanceView.setText(walkingDistance + 42 + " cm walked");
+
+                    walkingDistance += Integer.valueOf(stepDistance);
+                    distanceView.setText(walkingDistance +" cm walked");
                     lastPeakTime = key;
-                    walkingDistance += 42;
                 }
 
                 mGravity = event.values;
@@ -333,7 +337,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                         Log.d(TAG, "on MAGNETIC FIELD: azimuth " + azimuth);
                         TextView rotationView = (TextView) findViewById(R.id.rotation_view);
-                        TextView currentRotationView = (TextView) findViewById(R.id.current_rotation_view);
+                        // TextView currentRotationView = (TextView) findViewById(R.id.current_rotation_view);
                         if (previousDegree == 0){}
                         else {
                             double degreeChange = Math.min(Math.abs(azimuth - previousDegree),360.0 - Math.abs(azimuth - previousDegree));
@@ -342,7 +346,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                             }
                         }
                         previousDegree = azimuth;
-                        currentRotationView.setText("heading to: " + azimuth);
+                        // currentRotationView.setText("heading to: " + azimuth);
                         rotationView.setText(totalDegree + " degrees in total");
                         lastRotateTime = key;
                     }
